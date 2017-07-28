@@ -181,6 +181,11 @@ class StatusThread extends Thread {
     if (totalops != 0) {
       msg.append(d.format(curthroughput)).append(" current ops/sec; ");
     }
+ 
+    if (totalops != 0) {
+      msg.append(d.format(throughput)).append(" total ops/sec; ");
+    }
+
     if (todoops != 0) {
       msg.append("est completion in ").append(RemainingFormatter.format(estremaining));
     }
@@ -441,11 +446,16 @@ class ClientThread implements Runnable {
       if (dotransactions) {
         long startTimeNanos = System.nanoTime();
 
-        while (((opcount == 0) || (opsdone < opcount)) && !workload.isStopRequested()) {
-
-          if (!workload.doTransaction(db, workloadstate)) {
+        while (((_opcount == 0) || (_opsdone < _opcount)) && !_workload.isStopRequested())
+        {
+	  long startTime = System.nanoTime();
+          //if (!_workload.doTransaction(_db,_workloadstate))
+          if (!_workload.doTransactionString(_db,_workloadstate))
+          {
             break;
           }
+	  long consumeTime = System.nanoTime() - startTime;
+	  // System.out.println("client doTransaction@panda timeuse(ns) " + consumeTime);
 
           opsdone++;
 
@@ -454,11 +464,16 @@ class ClientThread implements Runnable {
       } else {
         long startTimeNanos = System.nanoTime();
 
-        while (((opcount == 0) || (opsdone < opcount)) && !workload.isStopRequested()) {
-
-          if (!workload.doInsert(db, workloadstate)) {
+        while (((_opcount == 0) || (_opsdone < _opcount)) && !_workload.isStopRequested())
+        {
+	  long startTime = System.nanoTime();
+          // if (!_workload.doInsert(_db,_workloadstate))
+          if (!_workload.doInsertString(_db,_workloadstate))
+          {
             break;
           }
+	  long consumeTime = System.nanoTime() - startTime;
+	  // System.out.println("client doInsert@panda timeuse(ns) " + consumeTime);
 
           opsdone++;
 
@@ -713,8 +728,16 @@ public final class Client {
   }
 
   @SuppressWarnings("unchecked")
-  public static void main(String[] args) {
-    Properties props = parseArguments(args);
+  public static void main(String[] args)
+  {
+    String dbname;
+    Properties props=new Properties();
+    Properties fileprops=new Properties();
+    boolean dotransactions=true;
+    int threadcount=1;
+    int target=0;
+    boolean status=true;
+    String label="";
 
     boolean status = Boolean.valueOf(props.getProperty(STATUS_PROPERTY, String.valueOf(false)));
     String label = props.getProperty(LABEL_PROPERTY, "");

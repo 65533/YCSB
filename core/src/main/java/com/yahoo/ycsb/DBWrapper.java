@@ -139,6 +139,21 @@ public class DBWrapper extends DB {
     }
   }
 
+   public Status readstringvalue(String table, String key, Set<String> fields,
+      HashMap<String,String> result)
+  {
+    try (final TraceScope span = _tracer.newScope(SCOPE_STRING_READ)) {
+      long ist=_measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res=_db.readstringvalue(table,key,fields,result);
+      long en=System.nanoTime();
+      measure("READ", res, ist, st, en);
+      _measurements.reportStatus("READ", res);
+      return res;
+    }
+  }
+
+
   /**
    * Perform a range scan for a set of records in the database.
    * Each field/value pair from the result will be stored in a HashMap.
@@ -162,6 +177,21 @@ public class DBWrapper extends DB {
       return res;
     }
   }
+
+   public Status scanstringvalue(String table, String startkey, int recordcount,
+      Set<String> fields, Vector<HashMap<String,String>> result)
+  {
+    try (final TraceScope span = _tracer.newScope(SCOPE_STRING_SCAN)) {
+      long ist=_measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res=_db.scanstringvalue(table,startkey,recordcount,fields,result);
+      long en=System.nanoTime();
+      measure("SCAN", res, ist, st, en);
+      _measurements.reportStatus("SCAN", res);
+      return res;
+    }
+  }
+
 
   private void measure(String op, Status result, long intendedStartTimeNanos,
                        long startTimeNanos, long endTimeNanos) {
@@ -202,6 +232,20 @@ public class DBWrapper extends DB {
     }
   }
 
+  public Status updatestringvalue(String table, String key,
+      HashMap<String,String> values)
+  {
+    try (final TraceScope span = _tracer.newScope(SCOPE_STRING_UPDATE)) {
+      long ist=_measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res=_db.updatestringvalue(table,key,values);
+      long en=System.nanoTime();
+      measure("UPDATE", res, ist, st, en);
+      _measurements.reportStatus("UPDATE", res);
+      return res;
+    }
+  }
+
   /**
    * Insert a record in the database. Any field/value pairs in the specified
    * values HashMap will be written into the record with the specified
@@ -221,6 +265,20 @@ public class DBWrapper extends DB {
       long en = System.nanoTime();
       measure("INSERT", res, ist, st, en);
       measurements.reportStatus("INSERT", res);
+      return res;
+    }
+  }
+
+  public Status insertstringvalue(String table, String key,
+      HashMap<String,String> values)
+  {
+    try (final TraceScope span = _tracer.newScope(SCOPE_STRING_INSERT)) {
+      long ist=_measurements.getIntendedtartTimeNs();
+      long st = System.nanoTime();
+      Status res=_db.insertstringvalue(table,key,values);
+      long en=System.nanoTime();
+      measure("INSERT", res, ist, st, en);
+      _measurements.reportStatus("INSERT", res);
       return res;
     }
   }

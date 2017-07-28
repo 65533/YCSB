@@ -17,6 +17,15 @@
 
 package com.yahoo.ycsb.workloads;
 
+import java.util.Properties;
+import java.io.BufferedReader;  
+import java.io.File;  
+import java.io.FileInputStream;  
+import java.io.FileReader;  
+import java.io.IOException;  
+import java.io.InputStreamReader; 
+import java.io.FileNotFoundException;
+
 import com.yahoo.ycsb.*;
 import com.yahoo.ycsb.generator.*;
 import com.yahoo.ycsb.measurements.Measurements;
@@ -161,16 +170,28 @@ public class CoreWorkload extends Workload {
    */
   public static final String DATA_INTEGRITY_PROPERTY = "dataintegrity";
 
+  public static final String SOURCEFROMSELF_PROPERTY = "sourcefromself";
+  
+  public static final String MOVIE_PROPERTY = "movie";
+
   /**
    * The default value for the dataintegrity property.
    */
   public static final String DATA_INTEGRITY_PROPERTY_DEFAULT = "false";
+
+  public static final String SOURCEFROMSELF_PROPERTY_DEFAULT = "true";
+  
+  public static final String MOVIE_PROPERTY_DEFAULT = "false"; /*false*/
 
   /**
    * Set to true if want to check correctness of reads. Must also
    * be set to true during loading phase to function.
    */
   private boolean dataintegrity;
+
+  private boolean sourcefromself;
+  
+  private boolean movie;
 
   /**
    * The name of the property for the proportion of transactions that are reads.
@@ -321,6 +342,16 @@ public class CoreWorkload extends Workload {
   protected int insertionRetryInterval;
 
   private Measurements measurements = Measurements.getMeasurements();
+  /**
+   * Movie file path
+   */
+  public static final String MOVIE_FILE_PATH = "movie_path";
+  public static final String MOVIE_FILE_PATH_DEFAULT = "/data/publicdata/movies/movies_ycsb.txt";
+
+  FileInputStream file = null;
+  BufferedReader br = null;
+
+  public String filepath;
 
   protected static NumberGenerator getFieldLengthGenerator(Properties p) throws WorkloadException {
     NumberGenerator fieldlengthgenerator;
@@ -356,14 +387,69 @@ public class CoreWorkload extends Workload {
    */
   @Override
   public void init(Properties p) throws WorkloadException {
+    try {
+/*
+    	file = new File(filepath); 
+    	br = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+*/
+    filepath = p.getProperty(MOVIE_FILE_PATH, MOVIE_FILE_PATH_DEFAULT);
+	file = new FileInputStream(filepath);
+    	br = new BufferedReader(new InputStreamReader(file));
+    } catch(FileNotFoundException fnfe) { 
+	System.out.println("FileNotFound");
+	return;
+    }
+/*
+    try{
+    	br.mark((int)file.length() + 1);
+    } catch(IOException e){
+	System.out.println("mark error");
+	return;
+    } 
+*/
     table = p.getProperty(TABLENAME_PROPERTY, TABLENAME_PROPERTY_DEFAULT);
 
     fieldcount =
         Integer.parseInt(p.getProperty(FIELD_COUNT_PROPERTY, FIELD_COUNT_PROPERTY_DEFAULT));
+<<<<<<< HEAD
     fieldnames = new ArrayList<>();
+=======
+    movie = Boolean.parseBoolean(
+        p.getProperty(MOVIE_PROPERTY, MOVIE_PROPERTY_DEFAULT));
+    fieldnames = new ArrayList<String>();
+
+    if(sourcefromself) {
+>>>>>>> master
     for (int i = 0; i < fieldcount; i++) {
       fieldnames.add("field" + i);
     }
+    } else if(movie) {
+		fieldnames.add("productproductId");
+		fieldnames.add("reviewuserId");
+		fieldnames.add("reviewprofileName");
+		fieldnames.add("reviewhelpfulness");
+		fieldnames.add("reviewscore");
+		fieldnames.add("reviewtime");
+		fieldnames.add("reviewsummary");
+		fieldnames.add("reviewtext");
+    } else {
+		fieldnames.add("cur_id");
+		fieldnames.add("cur_namespace");
+		fieldnames.add("cur_title");
+		fieldnames.add("cur_text");
+		fieldnames.add("cur_comment");
+		fieldnames.add("cur_user");
+		fieldnames.add("cur_user_text");
+		fieldnames.add("cur_timestamp");
+		fieldnames.add("cur_restrictions");
+		fieldnames.add("cur_counter");
+		fieldnames.add("cur_is_redirect");
+		fieldnames.add("cur_minor_edit");
+		fieldnames.add("cur_random");
+		fieldnames.add("cur_touched");
+		fieldnames.add("inverse_timestamp");
+    }
+
     fieldlengthgenerator = CoreWorkload.getFieldLengthGenerator(p);
 
     recordcount =
@@ -398,6 +484,9 @@ public class CoreWorkload extends Workload {
 
     dataintegrity = Boolean.parseBoolean(
         p.getProperty(DATA_INTEGRITY_PROPERTY, DATA_INTEGRITY_PROPERTY_DEFAULT));
+
+    sourcefromself = Boolean.parseBoolean(
+        p.getProperty(SOURCEFROMSELF_PROPERTY, SOURCEFROMSELF_PROPERTY_DEFAULT));
     // Confirm that fieldlengthgenerator returns a constant if data
     // integrity check requested.
     if (dataintegrity && !(p.getProperty(
@@ -507,19 +596,86 @@ public class CoreWorkload extends Workload {
     return value;
   }
 
+  private HashMap<String, String> buildSingleStringValue(String key) {
+    HashMap<String, String> value = new HashMap<String, String>();
+
+    String fieldkey = fieldnames.get(fieldchooser.nextValue().intValue());
+    String data = buildDeterministicValue(key, fieldkey);
+    value.put(fieldkey, data);
+
+    return value;
+  }
+
+
   /**
    * Builds values for all fields.
    */
+
+  private HashMap<String, String> buildStringValues(String key) {
+    //System.out.println("buildValues key " + key);
+    HashMap<String, String> values = new HashMap<String, String>();
+
+    if (sourcefromself) {
+	    for (String fieldkey : fieldnames) {
+		    String data = buildDeterministicValue(key, fieldkey);
+		    values.put(fieldkey, data);
+	    }
+    } else if (movie) {
+        for (String fieldkey : fieldnames) {
+            try {
+                while(br.ready()) {
+                    String data = br.readLine();
+                    if(data.startsWith(fieldkey)) {
+                        values.put(fieldkey, data.substring(fieldkey.length()+2));
+                        break;
+                    }
+                }
+                if (!br.ready()) {
+                    file.getChannel().position(0);
+                    br = new BufferedReader(new InputStreamReader(file));
+                }
+            } catch (IOException e) {
+                System.out.println("read error");
+            }
+        }
+    } else {
+        for (String fieldkey : fieldnames) {
+            try {
+                while(br.ready()) {
+                    String data = br.readLine();
+                    values.put(fieldkey, data);
+                    break;
+                }
+                if (!br.ready()) {
+                    file.getChannel().position(0);
+                    br = new BufferedReader(new InputStreamReader(file));
+                }
+            } catch (IOException e) {
+                System.out.println("read error");
+            }
+        }
+    }
+    return values;
+  }
+
   private HashMap<String, ByteIterator> buildValues(String key) {
+<<<<<<< HEAD
     HashMap<String, ByteIterator> values = new HashMap<>();
+=======
+    //System.out.println("buildValues key " + key);
+    HashMap<String, ByteIterator> values = new HashMap<String, ByteIterator>();
+>>>>>>> master
 
     for (String fieldkey : fieldnames) {
+      //System.out.println("buildValues fieldkey " + fieldkey);
       ByteIterator data;
       if (dataintegrity) {
         data = new StringByteIterator(buildDeterministicValue(key, fieldkey));
+        //System.out.println("buildValues dataintegrity data  " + data.toString());
       } else {
         // fill with random data
         data = new RandomByteIterator(fieldlengthgenerator.nextValue().longValue());
+        //System.out.println("buildValues not dataintegrity data  " + data);
       }
       values.put(fieldkey, data);
     }
@@ -552,6 +708,7 @@ public class CoreWorkload extends Workload {
    */
   @Override
   public boolean doInsert(DB db, Object threadstate) {
+    //System.out.println("ycsb core doInsert");
     int keynum = keysequence.nextValue().intValue();
     String dbkey = buildKeyName(keynum);
     HashMap<String, ByteIterator> values = buildValues(dbkey);
@@ -587,6 +744,44 @@ public class CoreWorkload extends Workload {
     return null != status && status.isOk();
   }
 
+  @Override
+  public boolean doInsertString(DB db, Object threadstate) {
+    int keynum = keysequence.nextValue().intValue();
+    String dbkey = buildKeyName(keynum);
+    HashMap<String, String> values = buildStringValues(dbkey);
+
+    Status status;
+    int numOfRetries = 0;
+    do {
+      status = db.insertstringvalue(table, dbkey, values);
+      System.err.println(status.toString());
+      if (status == Status.OK) {
+        break;
+      }
+      // Retry if configured. Without retrying, the load process will fail
+      // even if one single insertion fails. User can optionally configure
+      // an insertion retry limit (default is 0) to enable retry.
+      if (++numOfRetries <= insertionRetryLimit) {
+        System.err.println("Retrying insertion, retry count: " + numOfRetries);
+        try {
+          // Sleep for a random number between [0.8, 1.2)*insertionRetryInterval.
+          int sleepTime = (int) (1000 * insertionRetryInterval * (0.8 + 0.4 * Math.random()));
+          Thread.sleep(sleepTime);
+        } catch (InterruptedException e) {
+          break;
+        }
+
+      } else {
+        System.err.println("Error inserting, not retrying any more. number of attempts: " + numOfRetries +
+            "Insertion Retry Limit: " + insertionRetryLimit);
+        break;
+
+      }
+    } while (true);
+
+    return (status == Status.OK);
+  }
+
   /**
    * Do one transaction operation. Because it will be called concurrently from multiple client
    * threads, this function must be thread safe. However, avoid synchronized, or the threads will block waiting
@@ -620,6 +815,30 @@ public class CoreWorkload extends Workload {
     return true;
   }
 
+  @Override
+  public boolean doTransactionString(DB db, Object threadstate) {
+    switch (operationchooser.nextString()) {
+    case "READ":
+      doTransactionReadString(db);
+      break;
+    case "UPDATE":
+      doTransactionUpdateString(db);
+      break;
+    case "INSERT":
+      doTransactionInsertString(db);
+      break;
+    case "SCAN":
+      doTransactionScanString(db);
+      break;
+    default:
+      doTransactionReadModifyWriteString(db);
+    }
+
+    return true;
+  }
+
+
+
   /**
    * Results are reported in the first three buckets of the histogram under
    * the label "VERIFY".
@@ -645,6 +864,26 @@ public class CoreWorkload extends Workload {
     measurements.measure("VERIFY", (int) (endTime - startTime) / 1000);
     measurements.reportStatus("VERIFY", verifyStatus);
   }
+
+ protected void verifyRowString(String key, HashMap<String, String> cells) {
+    Status verifyStatus = Status.OK;
+    long startTime = System.nanoTime();
+    if (!cells.isEmpty()) {
+      for (Map.Entry<String, String> entry : cells.entrySet()) {
+        if (!entry.getValue().equals(buildDeterministicValue(key, entry.getKey()))) {
+          verifyStatus = Status.UNEXPECTED_STATE;
+          break;
+        }
+      }
+    } else {
+      // This assumes that null data is never valid
+      verifyStatus = Status.ERROR;
+    }
+    long endTime = System.nanoTime();
+    measurements.measure("VERIFY", (int) (endTime - startTime) / 1000);
+    measurements.reportStatus("VERIFY", verifyStatus);
+  }
+
 
   protected int nextKeynum() {
     int keynum;
@@ -687,6 +926,41 @@ public class CoreWorkload extends Workload {
     }
   }
 
+   public void doTransactionReadString(DB db) {
+    // choose a random key
+    Status s;
+    int keynum = nextKeynum();
+
+    String keyname = buildKeyName(keynum);
+
+    HashSet<String> fields = null;
+
+    if (!readallfields) {
+      // read a random field
+      String fieldname = fieldnames.get(fieldchooser.nextValue().intValue());
+
+      fields = new HashSet<String>();
+      fields.add(fieldname);
+    } else if (dataintegrity) {
+      // pass the full field list if dataintegrity is on for verification
+      fields = new HashSet<String>(fieldnames);
+    }
+
+    HashMap<String, String> cells = new HashMap<String, String>();
+    s = db.readstringvalue(table, keyname, fields, cells);
+   /* 
+    if (s == Status.OK) 
+	System.out.println("found@panda");
+
+    if (s == Status.NOT_FOUND)
+	System.out.println("not found@panda");
+   */
+    if (dataintegrity) {
+      verifyRowString(keyname, cells);
+    }
+  }
+
+ 
   public void doTransactionReadModifyWrite(DB db) {
     // choose a random key
     int keynum = nextKeynum();
@@ -734,6 +1008,54 @@ public class CoreWorkload extends Workload {
     measurements.measureIntended("READ-MODIFY-WRITE", (int) ((en - ist) / 1000));
   }
 
+  public void doTransactionReadModifyWriteString(DB db) {
+    // choose a random key
+    int keynum = nextKeynum();
+
+    String keyname = buildKeyName(keynum);
+
+    HashSet<String> fields = null;
+
+    if (!readallfields) {
+      // read a random field
+      String fieldname = fieldnames.get(fieldchooser.nextValue().intValue());
+
+      fields = new HashSet<String>();
+      fields.add(fieldname);
+    }
+
+    HashMap<String, String> values;
+
+    if (writeallfields) {
+      // new data for all the fields
+      values = buildStringValues(keyname);
+    } else {
+      // update a random field
+      values = buildSingleStringValue(keyname);
+    }
+
+    // do the transaction
+
+    HashMap<String, String> cells = new HashMap<String, String>();
+
+
+    long ist = measurements.getIntendedtartTimeNs();
+    long st = System.nanoTime();
+    db.readstringvalue(table, keyname, fields, cells);
+
+    db.updatestringvalue(table, keyname, values);
+
+    long en = System.nanoTime();
+
+    if (dataintegrity) {
+      verifyRowString(keyname, cells);
+    }
+
+    measurements.measure("READ-MODIFY-WRITE", (int) ((en - st) / 1000));
+    measurements.measureIntended("READ-MODIFY-WRITE", (int) ((en - ist) / 1000));
+  }
+
+
   public void doTransactionScan(DB db) {
     // choose a random key
     int keynum = nextKeynum();
@@ -756,6 +1078,29 @@ public class CoreWorkload extends Workload {
     db.scan(table, startkeyname, len, fields, new Vector<HashMap<String, ByteIterator>>());
   }
 
+  public void doTransactionScanString(DB db) {
+	  // choose a random key
+    int keynum = nextKeynum();
+
+    String startkeyname = buildKeyName(keynum);
+
+    // choose a random scan length
+    int len = scanlength.nextValue().intValue();
+
+    HashSet<String> fields = null;
+
+    if (!readallfields) {
+      // read a random field
+      String fieldname = fieldnames.get(fieldchooser.nextValue().intValue());
+
+      fields = new HashSet<String>();
+      fields.add(fieldname);
+    }
+
+    db.scanstringvalue(table, startkeyname, len, fields, new Vector<HashMap<String, String>>());
+
+  }
+
   public void doTransactionUpdate(DB db) {
     // choose a random key
     int keynum = nextKeynum();
@@ -775,8 +1120,29 @@ public class CoreWorkload extends Workload {
     db.update(table, keyname, values);
   }
 
+  public void doTransactionUpdateString(DB db) {
+    // choose a random key
+    int keynum = nextKeynum();
+
+    String keyname = buildKeyName(keynum);
+
+    HashMap<String, String> values;
+
+    if (writeallfields) {
+      // new data for all the fields
+      values = buildStringValues(keyname);
+    } else {
+      // update a random field
+      values = buildSingleStringValue(keyname);
+    }
+
+    db.updatestringvalue(table, keyname, values);
+  }
+
+
   public void doTransactionInsert(DB db) {
     // choose the next key
+    //System.out.println("ycsb core doTransactionInsert");
     int keynum = transactioninsertkeysequence.nextValue();
 
     try {
@@ -788,6 +1154,22 @@ public class CoreWorkload extends Workload {
       transactioninsertkeysequence.acknowledge(keynum);
     }
   }
+
+  public void doTransactionInsertString(DB db) {
+    // choose the next key
+    //System.out.println("ycsb core doTransactionInsert");
+    int keynum = transactioninsertkeysequence.nextValue();
+
+    try {
+      String dbkey = buildKeyName(keynum);
+
+      HashMap<String, String> values = buildStringValues(dbkey);
+      db.insertstringvalue(table, dbkey, values);
+    } finally {
+      transactioninsertkeysequence.acknowledge(keynum);
+    }
+  }
+
 
   /**
    * Creates a weighted discrete values with database operations for a workload to perform.
@@ -837,3 +1219,4 @@ public class CoreWorkload extends Workload {
     return operationchooser;
   }
 }
+

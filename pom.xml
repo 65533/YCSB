@@ -109,7 +109,7 @@ LICENSE file.
     <module>core</module>
     <module>binding-parent</module>
     <!-- all the datastore bindings, lex sorted please -->
-    <module>accumulo</module>
+    <!--<module>accumulo</module>
     <module>aerospike</module>
     <module>arangodb</module>
     <module>arangodb3</module>
@@ -132,11 +132,11 @@ LICENSE file.
     <module>hbase12</module>
     <module>hypertable</module>
     <module>infinispan</module>
-    <module>jdbc</module>
-    <module>kudu</module>
+    <module>kudu</module>-->
     <!--<module>mapkeeper</module>-->
-    <module>memcached</module>
     <module>mongodb</module>
+    <module>jdbc</module>
+    <!--<module>memcached</module>
     <module>nosqldb</module>
     <module>orientdb</module>
     <module>rados</module>
@@ -147,6 +147,7 @@ LICENSE file.
     <module>solr</module>
     <module>solr6</module>
     <module>tarantool</module>
+    <module>tarantool</module>-->
     <!--<module>voldemort</module>-->
   </modules>
 
@@ -169,22 +170,6 @@ LICENSE file.
           <source>1.7</source>
           <target>1.7</target>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>validate</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-            <configuration>
-              <configLocation>checkstyle.xml</configLocation>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

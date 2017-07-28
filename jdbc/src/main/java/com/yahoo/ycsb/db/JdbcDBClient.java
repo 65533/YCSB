@@ -340,6 +340,34 @@ public class JdbcDBClient extends DB {
   }
 
   @Override
+  public Status readstringvalue(String tableName, String key, Set<String> fields, HashMap<String, String> result) {
+    try {
+      StatementType type = new StatementType(StatementType.Type.READ, tableName, 1, "", getShardIndexByKey(key));
+      PreparedStatement readStatement = cachedStatements.get(type);
+      if (readStatement == null) {
+        readStatement = createAndCacheReadStatement(type, key);
+      }
+      readStatement.setString(1, key);
+      ResultSet resultSet = readStatement.executeQuery();
+      if (!resultSet.next()) {
+        resultSet.close();
+        return Status.NOT_FOUND;
+      }
+      if (result != null && fields != null) {
+        for (String field : fields) {
+          String value = resultSet.getString(field);
+          result.put(field, value);
+        }
+      }
+      resultSet.close();
+      return Status.OK;
+    } catch (SQLException e) {
+      System.err.println("Error in processing read of table " + tableName + ": " + e);
+      return Status.ERROR;
+    }
+  }
+
+  @Override
   public Status scan(String tableName, String startKey, int recordcount, Set<String> fields,
                      Vector<HashMap<String, ByteIterator>> result) {
     try {
@@ -370,12 +398,74 @@ public class JdbcDBClient extends DB {
   }
 
   @Override
+  public Status scanstringvalue(String tableName, String startKey, int recordcount, Set<String> fields,
+                     Vector<HashMap<String, String>> result) {
+    try {
+      StatementType type = new StatementType(StatementType.Type.SCAN, tableName, 1, "", getShardIndexByKey(startKey));
+      PreparedStatement scanStatement = cachedStatements.get(type);
+      if (scanStatement == null) {
+        scanStatement = createAndCacheScanStatement(type, startKey);
+      }
+      scanStatement.setString(1, startKey);
+      scanStatement.setInt(2, recordcount);
+      ResultSet resultSet = scanStatement.executeQuery();
+      for (int i = 0; i < recordcount && resultSet.next(); i++) {
+        if (result != null && fields != null) {
+          HashMap<String, String> values = new HashMap<String, String>();
+          for (String field : fields) {
+            String value = resultSet.getString(field);
+            values.put(field, value);
+          }
+          result.add(values);
+        }
+      }
+      resultSet.close();
+      return Status.OK;
+    } catch (SQLException e) {
+      System.err.println("Error in processing scan of table: " + tableName + e);
+      return Status.ERROR;
+    }
+  }
+
+  @Override
   public Status update(String tableName, String key, HashMap<String, ByteIterator> values) {
     try {
       int numFields = values.size();
       OrderedFieldInfo fieldInfo = getFieldInfo(values);
       StatementType type = new StatementType(StatementType.Type.UPDATE, tableName,
           numFields, fieldInfo.getFieldKeys(), getShardIndexByKey(key));
+      PreparedStatement updateStatement = cachedStatements.get(type);
+      if (updateStatement == null) {
+        updateStatement = createAndCacheUpdateStatement(type, key);
+      }
+      int index = 1;
+      for (String value: fieldInfo.getFieldValues()) {
+        updateStatement.setString(index++, value);
+      }
+      updateStatement.setString(index, key);
+      int result = updateStatement.executeUpdate();
+      if (result == 1) {
+        return Status.OK;
+      }
+      return Status.UNEXPECTED_STATE;
+    } catch (SQLException e) {
+      System.err.println("Error in processing update to table: " + tableName + e);
+      return Status.ERROR;
+    }
+  }
+
+  @Override
+  public Status updatestringvalue(String tableName, String key, HashMap<String, String> values) {
+    try {
+      Iterator iter = values.entrySet().iterator();
+      while(iter.hasNext()) {
+        Map.Entry entry = (Map.Entry) iter.next();
+        System.err.println("key: " + entry.getKey().toString() + " value: " + entry.getValue().toString());
+      }
+      int numFields = values.size();
+      OrderedFieldInfo fieldInfo = getFieldInfoString(values);
+      StatementType type = new StatementType(StatementType.Type.UPDATE, tableName,
+              numFields, fieldInfo.getFieldKeys(), getShardIndexByKey(key));
       PreparedStatement updateStatement = cachedStatements.get(type);
       if (updateStatement == null) {
         updateStatement = createAndCacheUpdateStatement(type, key);
@@ -464,6 +554,33 @@ public class JdbcDBClient extends DB {
   }
 
   @Override
+  public Status insertstringvalue(String tableName, String key, HashMap<String, String> values) {
+    try {
+      int numFields = values.size();
+      OrderedFieldInfo fieldInfo = getFieldInfoString(values);
+      StatementType type = new StatementType(StatementType.Type.INSERT, tableName,
+              numFields, fieldInfo.getFieldKeys(), getShardIndexByKey(key));
+      PreparedStatement insertStatement = cachedStatements.get(type);
+      if (insertStatement == null) {
+        insertStatement = createAndCacheInsertStatement(type, key);
+      }
+      insertStatement.setString(1, key);
+      int index = 2;
+      for (String value: fieldInfo.getFieldValues()) {
+        insertStatement.setString(index++, value);
+      }
+      int result = insertStatement.executeUpdate();
+      if (result == 1) {
+        return Status.OK;
+      }
+      return Status.UNEXPECTED_STATE;
+    } catch (SQLException e) {
+      System.err.println("Error in processing insert to table: " + tableName + e);
+      return Status.ERROR;
+    }
+  }
+
+  @Override
   public Status delete(String tableName, String key) {
     try {
       StatementType type = new StatementType(StatementType.Type.DELETE, tableName, 1, "", getShardIndexByKey(key));
@@ -495,6 +612,23 @@ public class JdbcDBClient extends DB {
       fieldValues.add(count, entry.getValue().toString());
       count++;
     }
+
+    return new OrderedFieldInfo(fieldKeys, fieldValues);
+  }
+
+  private OrderedFieldInfo getFieldInfoString(HashMap<String, String> values) {
+    String fieldKeys = "";
+    List<String> fieldValues = new ArrayList();
+    int count = 0;
+    for (Map.Entry<String, String> entry : values.entrySet()) {
+      fieldKeys += entry.getKey();
+      if (count < values.size() - 1) {
+        fieldKeys += ",";
+      }
+      fieldValues.add(count, entry.getValue().toString());
+      count++;
+    }
+    //System.err.println("$$fieldKeys:" + fieldKeys);
 
     return new OrderedFieldInfo(fieldKeys, fieldValues);
   }

@@ -98,6 +98,11 @@ public class GoodBadUglyDB extends DB {
     return Status.OK;
   }
 
+    public Status readstringvalue(String table, String key, Set<String> fields, HashMap<String, String> result) {
+        delay();
+        return Status.OK;
+    }
+
   /**
    * Perform a range scan for a set of records in the database. Each field/value pair from the result will be stored
    * in a HashMap.
@@ -116,6 +121,14 @@ public class GoodBadUglyDB extends DB {
     return Status.OK;
   }
 
+    public Status scanstringvalue(String table, String startkey, int recordcount, Set<String> fields,
+            Vector<HashMap<String, String>> result) {
+        delay();
+
+        return Status.OK;
+    }
+
+
   /**
    * Update a record in the database. Any field/value pairs in the specified values HashMap will be written into the
    * record with the specified record key, overwriting any existing values with the same field name.
@@ -131,6 +144,12 @@ public class GoodBadUglyDB extends DB {
     return Status.OK;
   }
 
+    public Status updatestringvalue(String table, String key, HashMap<String, String> values) {
+        delay();
+
+        return Status.OK;
+    }
+
   /**
    * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the
    * record with the specified record key.
@@ -144,6 +163,12 @@ public class GoodBadUglyDB extends DB {
     delay();
     return Status.OK;
   }
+
+   public Status insertstringvalue(String table, String key, HashMap<String, String> values) {
+        delay();
+        return Status.OK;
+    }
+
 
   /**
    * Delete a record from the database.
