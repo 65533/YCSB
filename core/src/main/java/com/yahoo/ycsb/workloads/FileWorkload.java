@@ -101,8 +101,8 @@ public class FileWorkload extends CoreWorkload {
   public static final String USE_CUSTOM_KEY = "usecustomkey";
   public static final String USE_CUSTOM_KEY_DEFAULT = "false";
 
-  public static final String THREAD_PLAN = "threadplan";
-  public static final String THREAD_PLAN_DEFAULT = "0-0:1,0";
+  // public static final String THREAD_PLAN = "threadplan";
+  // public static final String THREAD_PLAN_DEFAULT = "0-0:1,0";
 
   public static final String WRITE_IN_READ = "writeinread";
   public static final String WRITE_IN_READ_DEFAULT = "true";
@@ -160,6 +160,7 @@ public class FileWorkload extends CoreWorkload {
   private ArrayList<Boolean> keyfieldsbits;
 
   private static String delimiter;
+  private static String regexdelimiter;
   public static String getDelimiter() {
     return delimiter;
   }
@@ -205,6 +206,11 @@ public class FileWorkload extends CoreWorkload {
     }
 
     delimiter = p.getProperty(DATA_FILE_DELIMITER, DATA_FILE_DELIMIITER_DEFAULT);
+    if (delimiter == "|") {
+      regexdelimiter = "\\|";
+    } else {
+      regexdelimiter = delimiter;
+    }
     fieldnum = Integer.valueOf(p.getProperty(FIELD_NUM, FIELD_NUM_DEFAULT));
     keyfieldsbits = new ArrayList<>(Collections.nCopies(fieldnum, false));
     List<String> keyfieldsStr = Arrays.asList(p.getProperty(KEY_FIELD, KEY_FIELD_DEFAULTS).split(","));
@@ -346,7 +352,7 @@ public class FileWorkload extends CoreWorkload {
     } catch (Exception e) {
       throw new RuntimeException("Data convert error: " + e.getCause().getMessage());
     }
-    String[] strings = line.split(getDelimiter());
+    String[] strings = line.split("\\|");
     if (strings.length < fieldnum) {
       System.err.println("There too little fields in the data: " + line);
       return true;
@@ -354,30 +360,25 @@ public class FileWorkload extends CoreWorkload {
     values = buildValues(strings);
     dbkey = buildKeys(strings);
     Status status;
-    int numOfRetries = 0;
-    do {
-      status = db.insert(table, dbkey, values);
-      if (null != status && status.isOk()) {
-        break;
-      }
-      // Retry if configured. Without retrying, the load process will fail
-      // even if one single insertion fails. User can optionally configure
-      // an insertion retry limit (default is 0) to enable retry.
-      if (++numOfRetries <= insertionRetryLimit) {
-        System.err.println("Retrying insertion, retry count: " + numOfRetries);
-        try {
-          // Sleep for a random number between [0.8, 1.2)*insertionRetryInterval.
-          int sleepTime = (int) (1000 * insertionRetryInterval * (0.8 + 0.4 * Math.random()));
-          Thread.sleep(sleepTime);
-        } catch (InterruptedException e) {
-          break;
-        }
-      } else {
-        System.err.println("Error inserting, not retrying any more. number of attempts: " + numOfRetries +
-                "Insertion Retry Limit: " + insertionRetryLimit);
-        break;
-      }
-    } while (true);
+    status = db.insert(table, dbkey, values);
+    if (!(null != status && status.isOk())) {
+      return false;
+    }
+
+    double rand1 = Math.random();
+    if (rand1 < 0.05) {
+      String str = UUID.randomUUID().toString();
+      values.put("L_COMMENT", new StringByteIterator(str));
+      db.update(table, dbkey, values);
+      System.err.println("update dbkey: " + dbkey + " uuid: " + str);
+    }
+
+    double rand2 = Math.random();
+
+    if (rand2 < 0.01) {
+      db.delete(table, dbkey);
+      System.err.println("delete dbkey: " + dbkey);
+    }
 
     return null != status && status.isOk();
   }
