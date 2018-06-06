@@ -350,6 +350,9 @@ public class FileWorkload extends CoreWorkload {
     }
     values = buildValues(strings);
     dbkey = buildKeys(strings);
+    if (dbkey.length() >= 256) {
+      dbkey = dbkey.substring(0, 255);
+    }
     Status status;
     int numOfRetries = 0;
     do {
